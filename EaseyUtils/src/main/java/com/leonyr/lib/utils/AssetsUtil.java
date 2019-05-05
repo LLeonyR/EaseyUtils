@@ -1,7 +1,6 @@
 package com.leonyr.lib.utils;
 
 import android.content.Context;
-import android.util.Log;
 
 import java.io.IOException;
 import java.io.InputStream;
