@@ -2,6 +2,7 @@ package com.leonyr.lib.utils;
 
 import android.content.ContentResolver;
 import android.content.ContentUris;
+import android.content.Context;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Build;
@@ -143,5 +144,25 @@ public final class UriUtil{
         } finally {
             cursor.close();
         }
+    }
+
+    public static Uri getUri(Context c, String path){
+        Uri uri;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            uri = FileProvider.getUriForFile(c, c.getPackageName() + ".fileProvider", new File(path));
+        } else {//在版本低于此的时候，做一些处理
+            uri = Uri.parse(path);
+        }
+        return uri;
+    }
+
+    public static Uri getUri(Context c, File file){
+        Uri uri;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            uri = FileProvider.getUriForFile(c, c.getPackageName() + ".fileProvider", file);
+        } else {//在版本低于此的时候，做一些处理
+            uri = Uri.fromFile(file);
+        }
+        return uri;
     }
 }
