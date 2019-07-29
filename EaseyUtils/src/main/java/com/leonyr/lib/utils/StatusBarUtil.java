@@ -1,4 +1,5 @@
 package com.leonyr.lib.utils;
+
 import android.annotation.TargetApi;
 import android.app.Activity;
 import android.content.Context;
@@ -8,6 +9,7 @@ import android.support.annotation.ColorInt;
 import android.support.annotation.IntRange;
 import android.support.annotation.NonNull;
 import android.support.design.widget.CoordinatorLayout;
+import android.support.v4.content.ContextCompat;
 import android.support.v4.widget.DrawerLayout;
 import android.view.View;
 import android.view.ViewGroup;
@@ -684,5 +686,69 @@ public class StatusBarUtil {
                 layoutParams.rightMargin,
                 layoutParams.bottomMargin);
         view.setTag(TAG_KEY_HAVE_SET_OFFSET, true);
+    }
+
+    //沉浸式状态栏
+    public static void hackStatusBar(@NonNull View rootView) {
+        if (!(rootView instanceof ViewGroup)) {
+            return;
+        }
+
+        ViewGroup viewGroup = (ViewGroup) rootView;
+        if (viewGroup.getChildCount() == 0) {
+            return;
+        }
+
+        View offsetView = new View(rootView.getContext());
+
+        offsetView.setBackgroundColor(ContextCompat.getColor(rootView.getContext(), R.color.colorPrimary));
+        ViewGroup.LayoutParams lp = new ViewGroup.LayoutParams(rootView.getWidth(), getStatusBarHeight(rootView.getContext()));
+        offsetView.setLayoutParams(lp);
+        viewGroup.addView(offsetView, 0);
+
+        if (!(viewGroup instanceof LinearLayout)) {
+            StatusBarUtil.addMarginTopEqualStatusBarHeight(viewGroup.getChildAt(1));
+        }
+    }
+
+    /**
+     * 需先将要拓展到状态栏的viewgroup的id设置为content
+     *
+     * @param rootView
+     */
+    public static void hackStatusBarImage(@NonNull View rootView) {
+        if (!(rootView instanceof ViewGroup)) {
+            return;
+        }
+        ViewGroup viewGroup = (ViewGroup) rootView;
+        ViewGroup offsetViewGroup = viewGroup.findViewById(android.R.id.content);
+        if (null == offsetViewGroup) {
+            return;
+        }
+        offsetViewGroup.setPadding(offsetViewGroup.getPaddingLeft(), offsetViewGroup.getPaddingTop() + getStatusBarHeight(rootView.getContext()),
+                offsetViewGroup.getPaddingRight(), offsetViewGroup.getPaddingBottom());
+    }
+
+
+    /**
+     * 需先将要拓展到状态栏的viewgroup的id设置为action_bar
+     *
+     * @param rootView
+     */
+    public static void hackStatusBarTitle(@NonNull View rootView) {
+        if (!(rootView instanceof ViewGroup)) {
+            return;
+        }
+        ViewGroup viewGroup = (ViewGroup) rootView;
+        ViewGroup offsetViewGroup = viewGroup.findViewById(R.id.title_bar);
+        if (null == offsetViewGroup) {
+            return;
+        }
+        //改变高度
+        ViewGroup.LayoutParams layoutParams = offsetViewGroup.getLayoutParams();
+        layoutParams.height = (int) rootView.getResources().getDimension(R.dimen.actionbar_height) + getStatusBarHeight(rootView.getContext());
+        offsetViewGroup.setLayoutParams(layoutParams);
+        offsetViewGroup.setPadding(offsetViewGroup.getPaddingLeft(), offsetViewGroup.getPaddingTop() + getStatusBarHeight(rootView.getContext()),
+                offsetViewGroup.getPaddingRight(), offsetViewGroup.getPaddingBottom());
     }
 }

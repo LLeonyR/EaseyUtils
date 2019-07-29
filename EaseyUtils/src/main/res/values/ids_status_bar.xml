@@ -2,4 +2,8 @@
 <resources>
     <item name="statusbarutil_fake_status_bar_view" type="id"/>
     <item name="statusbarutil_translucent_view" type="id"/>
+    <item name="title_bar" type="id" />
+
+    <dimen name="actionbar_height">45dp</dimen>
+    <color name="colorPrimary">#FFFFFFFF</color>
 </resources>

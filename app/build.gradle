@@ -36,6 +36,6 @@ dependencies {
 //    implementation(rootProject.ext.thirdLib["glide"]) {
 //        exclude group: "com.android.support"
 //    }
-//    compile project(":EaseyUtils")
-    implementation 'com.leonyr:EaseyUtils:0.0.4'
+    debugCompile project(":EaseyUtils")
+//    implementation 'com.leonyr:EaseyUtils:0.0.4'
 }

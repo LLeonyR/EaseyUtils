@@ -1,10 +1,24 @@
 package com.leonyr.easyutils;
 
+import android.graphics.Color;
+import android.graphics.Typeface;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.text.TextPaint;
+import android.text.style.BackgroundColorSpan;
+import android.text.style.CharacterStyle;
+import android.text.style.ForegroundColorSpan;
+import android.text.style.StyleSpan;
+import android.text.style.UnderlineSpan;
 import android.view.View;
+import android.widget.TextView;
+
+import com.leonyr.lib.luban.Luban;
+import com.leonyr.lib.luban.OnRenameListener;
+import com.leonyr.lib.utils.LogUtil;
+import com.leonyr.lib.utils.SpanUtil;
 
 import java.util.Random;
 
@@ -32,9 +46,9 @@ public class MainActivity extends AppCompatActivity {
                 int result = random.nextInt(100);
                 rvMain.scrollToPosition(0);
                 mAdapter.addItem(String.valueOf(result));
+                LogUtil.e(String.valueOf(result));
             }
         });
     }
-
 
 }

@@ -1,17 +1,30 @@
 package com.leonyr.lib;
 
+import android.animation.ValueAnimator;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.ActivityManager;
 import android.app.Application;
+import android.app.Application.ActivityLifecycleCallbacks;
 import android.content.Context;
+import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.support.v4.content.FileProvider;
+import android.text.TextUtils;
+import android.util.Log;
 import android.view.View;
+import android.view.Window;
+import android.view.WindowManager;
 import android.view.inputmethod.InputMethodManager;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -19,14 +32,27 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
- * ==============================================================
- * Description:
- * <p>
- * Created by leonyr on 2019.04.14
- * (C) Copyright LeonyR Corporation 2018 All Rights Reserved.
- * ==============================================================
+ * <pre>
+ *     author:
+ *                                      ___           ___           ___         ___
+ *         _____                       /  /\         /__/\         /__/|       /  /\
+ *        /  /::\                     /  /::\        \  \:\       |  |:|      /  /:/
+ *       /  /:/\:\    ___     ___    /  /:/\:\        \  \:\      |  |:|     /__/::\
+ *      /  /:/~/::\  /__/\   /  /\  /  /:/~/::\   _____\__\:\   __|  |:|     \__\/\:\
+ *     /__/:/ /:/\:| \  \:\ /  /:/ /__/:/ /:/\:\ /__/::::::::\ /__/\_|:|____    \  \:\
+ *     \  \:\/:/~/:/  \  \:\  /:/  \  \:\/:/__\/ \  \:\~~\~~\/ \  \:\/:::::/     \__\:\
+ *      \  \::/ /:/    \  \:\/:/    \  \::/       \  \:\  ~~~   \  \::/~~~~      /  /:/
+ *       \  \:\/:/      \  \::/      \  \:\        \  \:\        \  \:\         /__/:/
+ *        \  \::/        \__\/        \  \:\        \  \:\        \  \:\        \__\/
+ *         \__\/                       \__\/         \__\/         \__\/
+ *     blog  : http://blankj.com
+ *     time  : 16/12/08
+ *     desc  : utils about initialization
+ * </pre>
  */
 public final class Utils {
 
@@ -34,9 +60,12 @@ public final class Utils {
             "com.blankj.utilcode.util.PermissionUtils$PermissionActivity";
 
     private static final ActivityLifecycleImpl ACTIVITY_LIFECYCLE = new ActivityLifecycleImpl();
+    private static final ExecutorService       UTIL_POOL          = Executors.newFixedThreadPool(3);
+    private static final Handler               UTIL_HANDLER       = new Handler(Looper.getMainLooper());
 
     @SuppressLint("StaticFieldLeak")
     private static Application sApplication;
+
 
     private Utils() {
         throw new UnsupportedOperationException("u can't instantiate me...");
@@ -92,6 +121,139 @@ public final class Utils {
         return app;
     }
 
+    public static ActivityLifecycleImpl getActivityLifecycle() {
+        return ACTIVITY_LIFECYCLE;
+    }
+
+    public static LinkedList<Activity> getActivityList() {
+        return ACTIVITY_LIFECYCLE.mActivityList;
+    }
+
+    public static Context getTopActivityOrApp() {
+        if (isAppForeground()) {
+            Activity topActivity = ACTIVITY_LIFECYCLE.getTopActivity();
+            return topActivity == null ? Utils.getApp() : topActivity;
+        } else {
+            return Utils.getApp();
+        }
+    }
+
+    public static boolean isAppForeground() {
+        ActivityManager am = (ActivityManager) Utils.getApp().getSystemService(Context.ACTIVITY_SERVICE);
+        if (am == null) return false;
+        List<ActivityManager.RunningAppProcessInfo> info = am.getRunningAppProcesses();
+        if (info == null || info.size() == 0) return false;
+        for (ActivityManager.RunningAppProcessInfo aInfo : info) {
+            if (aInfo.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND) {
+                if (aInfo.processName.equals(Utils.getApp().getPackageName())) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    public static <T> Task<T> doAsync(final Task<T> task) {
+        UTIL_POOL.execute(task);
+        return task;
+    }
+
+    public static void runOnUiThread(final Runnable runnable) {
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            runnable.run();
+        } else {
+            Utils.UTIL_HANDLER.post(runnable);
+        }
+    }
+
+    public static void runOnUiThreadDelayed(final Runnable runnable, long delayMillis) {
+        Utils.UTIL_HANDLER.postDelayed(runnable, delayMillis);
+    }
+
+    static String getCurrentProcessName() {
+        String name = getCurrentProcessNameByFile();
+        if (!TextUtils.isEmpty(name)) return name;
+        name = getCurrentProcessNameByAms();
+        if (!TextUtils.isEmpty(name)) return name;
+        name = getCurrentProcessNameByReflect();
+        return name;
+    }
+
+    static void fixSoftInputLeaks(final Window window) {
+        InputMethodManager imm =
+                (InputMethodManager) Utils.getApp().getSystemService(Context.INPUT_METHOD_SERVICE);
+        if (imm == null) return;
+        String[] leakViews = new String[]{"mLastSrvView", "mCurRootView", "mServedView", "mNextServedView"};
+        for (String leakView : leakViews) {
+            try {
+                Field leakViewField = InputMethodManager.class.getDeclaredField(leakView);
+                if (leakViewField == null) continue;
+                if (!leakViewField.isAccessible()) {
+                    leakViewField.setAccessible(true);
+                }
+                Object obj = leakViewField.get(imm);
+                if (!(obj instanceof View)) continue;
+                View view = (View) obj;
+                if (view.getRootView() == window.getDecorView().getRootView()) {
+                    leakViewField.set(imm, null);
+                }
+            } catch (Throwable ignore) {/**/}
+        }
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+    // private method
+    ///////////////////////////////////////////////////////////////////////////
+
+    private static String getCurrentProcessNameByFile() {
+        try {
+            File file = new File("/proc/" + android.os.Process.myPid() + "/" + "cmdline");
+            BufferedReader mBufferedReader = new BufferedReader(new FileReader(file));
+            String processName = mBufferedReader.readLine().trim();
+            mBufferedReader.close();
+            return processName;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return "";
+        }
+    }
+
+    private static String getCurrentProcessNameByAms() {
+        ActivityManager am = (ActivityManager) Utils.getApp().getSystemService(Context.ACTIVITY_SERVICE);
+        if (am == null) return "";
+        List<ActivityManager.RunningAppProcessInfo> info = am.getRunningAppProcesses();
+        if (info == null || info.size() == 0) return "";
+        int pid = android.os.Process.myPid();
+        for (ActivityManager.RunningAppProcessInfo aInfo : info) {
+            if (aInfo.pid == pid) {
+                if (aInfo.processName != null) {
+                    return aInfo.processName;
+                }
+            }
+        }
+        return "";
+    }
+
+    private static String getCurrentProcessNameByReflect() {
+        String processName = "";
+        try {
+            Application app = Utils.getApp();
+            Field loadedApkField = app.getClass().getField("mLoadedApk");
+            loadedApkField.setAccessible(true);
+            Object loadedApk = loadedApkField.get(app);
+
+            Field activityThreadField = loadedApk.getClass().getDeclaredField("mActivityThread");
+            activityThreadField.setAccessible(true);
+            Object activityThread = activityThreadField.get(loadedApk);
+
+            Method getProcessName = activityThread.getClass().getDeclaredMethod("getProcessName");
+            processName = (String) getProcessName.invoke(activityThread);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return processName;
+    }
+
     private static Application getApplicationByReflect() {
         try {
             @SuppressLint("PrivateApi")
@@ -114,40 +276,33 @@ public final class Utils {
         throw new NullPointerException("u should init first");
     }
 
-    static ActivityLifecycleImpl getActivityLifecycle() {
-        return ACTIVITY_LIFECYCLE;
-    }
-
-    static LinkedList<Activity> getActivityList() {
-        return ACTIVITY_LIFECYCLE.mActivityList;
-    }
-
-    static Context getTopActivityOrApp() {
-        if (isAppForeground()) {
-            Activity topActivity = ACTIVITY_LIFECYCLE.getTopActivity();
-            return topActivity == null ? Utils.getApp() : topActivity;
-        } else {
-            return Utils.getApp();
+    /**
+     * Set animators enabled.
+     */
+    private static void setAnimatorsEnabled() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && ValueAnimator.areAnimatorsEnabled()) {
+            return;
         }
-    }
-
-    static boolean isAppForeground() {
-        ActivityManager am = (ActivityManager) Utils.getApp().getSystemService(Context.ACTIVITY_SERVICE);
-        if (am == null) return false;
-        List<ActivityManager.RunningAppProcessInfo> info = am.getRunningAppProcesses();
-        if (info == null || info.size() == 0) return false;
-        for (ActivityManager.RunningAppProcessInfo aInfo : info) {
-            if (aInfo.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND) {
-                return aInfo.processName.equals(Utils.getApp().getPackageName());
+        try {
+            //noinspection JavaReflectionMemberAccess
+            Field sDurationScaleField = ValueAnimator.class.getDeclaredField("sDurationScale");
+            sDurationScaleField.setAccessible(true);
+            float sDurationScale = (Float) sDurationScaleField.get(null);
+            if (sDurationScale == 0f) {
+                sDurationScaleField.set(null, 1f);
+                Log.i("Utils", "setAnimatorsEnabled: Animators are enabled now!");
             }
+        } catch (NoSuchFieldException e) {
+            e.printStackTrace();
+        } catch (IllegalAccessException e) {
+            e.printStackTrace();
         }
-        return false;
     }
 
-    static class ActivityLifecycleImpl implements Application.ActivityLifecycleCallbacks {
+    static class ActivityLifecycleImpl implements ActivityLifecycleCallbacks {
 
-        final LinkedList<Activity> mActivityList         = new LinkedList<>();
-        final Map<Object, OnAppStatusChangedListener> mStatusListenerMap    = new HashMap<>();
+        final LinkedList<Activity>                            mActivityList         = new LinkedList<>();
+        final Map<Object, OnAppStatusChangedListener>         mStatusListenerMap    = new HashMap<>();
         final Map<Activity, Set<OnActivityDestroyedListener>> mDestroyedListenerMap = new HashMap<>();
 
         private int     mForegroundCount = 0;
@@ -156,6 +311,8 @@ public final class Utils {
 
         @Override
         public void onActivityCreated(Activity activity, Bundle savedInstanceState) {
+//            LanguageUtils.applyLanguage(activity);
+            setAnimatorsEnabled();
             setTopActivity(activity);
         }
 
@@ -172,16 +329,17 @@ public final class Utils {
         }
 
         @Override
-        public void onActivityResumed(Activity activity) {
+        public void onActivityResumed(final Activity activity) {
             setTopActivity(activity);
             if (mIsBackground) {
                 mIsBackground = false;
                 postStatus(true);
             }
+            processHideSoftInputOnActivityDestroy(activity, false);
         }
 
         @Override
-        public void onActivityPaused(Activity activity) {/**/
+        public void onActivityPaused(Activity activity) {
 
         }
 
@@ -196,6 +354,7 @@ public final class Utils {
                     postStatus(false);
                 }
             }
+            processHideSoftInputOnActivityDestroy(activity, true);
         }
 
         @Override
@@ -205,14 +364,19 @@ public final class Utils {
         public void onActivityDestroyed(Activity activity) {
             mActivityList.remove(activity);
             consumeOnActivityDestroyedListener(activity);
-            fixSoftInputLeaks(activity);
+            fixSoftInputLeaks(activity.getWindow());
         }
 
         Activity getTopActivity() {
             if (!mActivityList.isEmpty()) {
-                final Activity topActivity = mActivityList.getLast();
-                if (topActivity != null) {
-                    return topActivity;
+                for (int i = mActivityList.size() - 1; i >= 0; i--) {
+                    Activity activity = mActivityList.get(i);
+                    if (activity == null
+                            || activity.isFinishing()
+                            || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1 && activity.isDestroyed())) {
+                        continue;
+                    }
+                    return activity;
                 }
             }
             Activity topActivityByReflect = getTopActivityByReflect();
@@ -248,6 +412,29 @@ public final class Utils {
                 if (listeners.contains(listener)) return;
             }
             listeners.add(listener);
+        }
+
+        /**
+         * To solve close keyboard when activity onDestroy.
+         * The preActivity set windowSoftInputMode will prevent
+         * the keyboard from closing when curActivity onDestroy.
+         */
+        private void processHideSoftInputOnActivityDestroy(final Activity activity, boolean isSave) {
+            if (isSave) {
+                final WindowManager.LayoutParams attrs = activity.getWindow().getAttributes();
+                final int softInputMode = attrs.softInputMode;
+                activity.getWindow().getDecorView().setTag(-123, softInputMode);
+                activity.getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);
+            } else {
+                final Object tag = activity.getWindow().getDecorView().getTag(-123);
+                if (!(tag instanceof Integer)) return;
+                Utils.runOnUiThreadDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        activity.getWindow().setSoftInputMode(((Integer) tag));
+                    }
+                }, 100);
+            }
         }
 
         private void postStatus(final boolean isForeground) {
@@ -321,29 +508,6 @@ public final class Utils {
             }
             return null;
         }
-
-        private static void fixSoftInputLeaks(final Activity activity) {
-            if (activity == null) return;
-            InputMethodManager imm =
-                    (InputMethodManager) Utils.getApp().getSystemService(Context.INPUT_METHOD_SERVICE);
-            if (imm == null) return;
-            String[] leakViews = new String[]{"mLastSrvView", "mCurRootView", "mServedView", "mNextServedView"};
-            for (String leakView : leakViews) {
-                try {
-                    Field leakViewField = InputMethodManager.class.getDeclaredField(leakView);
-                    if (leakViewField == null) continue;
-                    if (!leakViewField.isAccessible()) {
-                        leakViewField.setAccessible(true);
-                    }
-                    Object obj = leakViewField.get(imm);
-                    if (!(obj instanceof View)) continue;
-                    View view = (View) obj;
-                    if (view.getRootView() == activity.getWindow().getDecorView().getRootView()) {
-                        leakViewField.set(imm, null);
-                    }
-                } catch (Throwable ignore) { /**/ }
-            }
-        }
     }
 
     public static final class FileProvider4UtilCode extends FileProvider {
@@ -359,6 +523,59 @@ public final class Utils {
     // interface
     ///////////////////////////////////////////////////////////////////////////
 
+    public abstract static class Task<Result> implements Runnable {
+
+        private static final int NEW         = 0;
+        private static final int COMPLETING  = 1;
+        private static final int CANCELLED   = 2;
+        private static final int EXCEPTIONAL = 3;
+
+        private volatile int state = NEW;
+
+        public abstract Result doInBackground();
+
+        private Callback<Result> mCallback;
+
+        public Task(final Callback<Result> callback) {
+            mCallback = callback;
+        }
+
+        @Override
+        public void run() {
+            try {
+                final Result t = doInBackground();
+
+                if (state != NEW) return;
+                state = COMPLETING;
+                UTIL_HANDLER.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        mCallback.onCall(t);
+                    }
+                });
+            } catch (Throwable th) {
+                if (state != NEW) return;
+                state = EXCEPTIONAL;
+            }
+        }
+
+        public void cancel() {
+            state = CANCELLED;
+        }
+
+        public boolean isDone() {
+            return state != NEW;
+        }
+
+        public boolean isCanceled() {
+            return state == CANCELLED;
+        }
+    }
+
+    public interface Callback<T> {
+        void onCall(T data);
+    }
+
     public interface OnAppStatusChangedListener {
         void onForeground();
 
@@ -369,4 +586,3 @@ public final class Utils {
         void onActivityDestroyed(Activity activity);
     }
 }
-

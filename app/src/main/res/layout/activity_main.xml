@@ -6,11 +6,26 @@
     android:orientation="vertical"
     tools:context=".MainActivity">
 
-    <Button
-        android:id="@+id/btn_create"
+    <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="50dp"
-        android:text="随机添加" />
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/btn_create"
+            android:layout_width="wrap_content"
+            android:layout_height="50dp"
+            android:text="随机添加" />
+
+        <TextView
+            android:id="@+id/text_tv"
+            android:minWidth="50dp"
+            android:layout_width="wrap_content"
+            android:layout_height="50dp" />
+
+    </LinearLayout>
+
 
     <android.support.v7.widget.RecyclerView
         android:id="@+id/rv_main"
