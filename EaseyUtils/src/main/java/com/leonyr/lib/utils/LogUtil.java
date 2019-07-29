@@ -31,7 +31,7 @@ public class LogUtil {
     public static final int ERROR = 5;
     public static final int NOTHING = 6;
     public static final int LEVEL = VERBOSE;
-    public static final String SEPARATOR = ",";
+    public static final String SEPARATOR = "::";
 
     public static void v(String message) {
         if (LEVEL <= VERBOSE && IS_DEBUG) {
@@ -105,6 +105,14 @@ public class LogUtil {
         }
     }
 
+    public static void e(String message) {
+        if (LEVEL <= ERROR && IS_DEBUG) {
+            StackTraceElement stackTraceElement = Thread.currentThread().getStackTrace()[3];
+            String tag = getDefaultTag(stackTraceElement);
+            Log.e(tag, getLogInfo(stackTraceElement) + message);
+        }
+    }
+
     public static void e(String tag, String message) {
         if (LEVEL <= ERROR && IS_DEBUG) {
             StackTraceElement stackTraceElement = Thread.currentThread().getStackTrace()[3];
@@ -113,6 +121,10 @@ public class LogUtil {
             }
             Log.e(tag, getLogInfo(stackTraceElement) + message);
         }
+    }
+
+    public static void e(Exception e){
+        e(e.getMessage());
     }
 
     public static void e(String tag, Exception e){
@@ -144,18 +156,22 @@ public class LogUtil {
         String fileName = stackTraceElement.getFileName();
         // 获取类名.即包名+类名
         String className = stackTraceElement.getClassName();
+        // 获取类名，只显示类名
+        String simpleClassName = className.substring(className.lastIndexOf(".") + 1);
+
         // 获取方法名称
         String methodName = stackTraceElement.getMethodName();
         // 获取生日输出行数
         int lineNumber = stackTraceElement.getLineNumber();
 
         logInfoStringBuilder.append("[ ");
-        logInfoStringBuilder.append("threadID=" + threadID).append(SEPARATOR);
-        logInfoStringBuilder.append("threadName=" + threadName).append(SEPARATOR);
-        logInfoStringBuilder.append("fileName=" + fileName).append(SEPARATOR);
-        logInfoStringBuilder.append("className=" + className).append(SEPARATOR);
-        logInfoStringBuilder.append("methodName=" + methodName).append(SEPARATOR);
-        logInfoStringBuilder.append("lineNumber=" + lineNumber);
+//        logInfoStringBuilder.append("threadID=" + threadID).append(SEPARATOR);
+//        logInfoStringBuilder.append("threadName=" + threadName).append(SEPARATOR);
+//        logInfoStringBuilder.append("fileName=" + fileName).append(SEPARATOR);
+//        logInfoStringBuilder.append("className=" + className).append(SEPARATOR);
+        logInfoStringBuilder.append(simpleClassName).append(SEPARATOR);
+        logInfoStringBuilder.append(methodName).append(SEPARATOR);
+        logInfoStringBuilder.append(lineNumber);
         logInfoStringBuilder.append(" ] ");
         return logInfoStringBuilder.toString();
     }

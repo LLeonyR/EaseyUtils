@@ -17,6 +17,7 @@ import android.widget.TextView;
 
 import com.leonyr.lib.luban.Luban;
 import com.leonyr.lib.luban.OnRenameListener;
+import com.leonyr.lib.utils.LogUtil;
 import com.leonyr.lib.utils.SpanUtil;
 
 import java.util.Random;
@@ -45,6 +46,7 @@ public class MainActivity extends AppCompatActivity {
                 int result = random.nextInt(100);
                 rvMain.scrollToPosition(0);
                 mAdapter.addItem(String.valueOf(result));
+                LogUtil.e(String.valueOf(result));
             }
         });
     }
