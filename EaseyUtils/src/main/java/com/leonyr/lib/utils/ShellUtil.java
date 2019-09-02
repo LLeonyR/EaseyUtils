@@ -1,301 +1,213 @@
 package com.leonyr.lib.utils;
 
-import android.support.annotation.NonNull;
-
-import com.leonyr.lib.Utils;
+import android.util.Log;
 
 import java.io.BufferedReader;
 import java.io.DataOutputStream;
-import java.io.IOException;
 import java.io.InputStreamReader;
-import java.util.List;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+
+import static java.lang.Runtime.getRuntime;
 
 /**
- * ==============================================================
- * Description:
- * <p>
- * Created by leonyr on 2019/7/29
- * (C) Copyright LeonyR Corporation 2014 All Rights Reserved.
- * ==============================================================
+ * 执行命令的类
+ * Created by Kappa
  */
 public class ShellUtil {
-    private static final String LINE_SEP = System.getProperty("line.separator");
+    //shell进程
+    private Process process;
+    //对应进程的3个流
+    private BufferedReader successResult;
+    private BufferedReader errorResult;
+    private DataOutputStream os;
+    //是否同步，true：run会一直阻塞至完成或超时。false：run会立刻返回
+    private boolean bSynchronous;
+    //表示shell进程是否还在运行
+    private boolean bRunning = false;
+    //同步锁
+    ReadWriteLock lock = new ReentrantReadWriteLock();
 
-    private ShellUtil() {
-        throw new UnsupportedOperationException("u can't instantiate me...");
+    //保存执行结果
+    private StringBuffer result = new StringBuffer();
+
+    /**
+     * 构造函数
+     *
+     * @param synchronous true：同步，false：异步
+     */
+    public ShellUtil(boolean synchronous) {
+        bSynchronous = synchronous;
     }
 
     /**
-     * Execute the command asynchronously.
-     *
-     * @param command  The command.
-     * @param isRooted True to use root, false otherwise.
-     * @param callback The callback.
-     * @return the task
+     * 默认构造函数，默认是同步执行
      */
-    public static Utils.Task<CommandResult> execCmdAsync(final String command,
-                                                         final boolean isRooted,
-                                                         final Utils.Callback<CommandResult> callback) {
-        return execCmdAsync(new String[]{command}, isRooted, true, callback);
+    public ShellUtil() {
+        bSynchronous = true;
     }
 
     /**
-     * Execute the command asynchronously.
+     * 还没开始执行，和已经执行完成 这两种情况都返回false
      *
-     * @param commands The commands.
-     * @param isRooted True to use root, false otherwise.
-     * @param callback The callback.
-     * @return the task
+     * @return 是否正在执行
      */
-    public static Utils.Task<CommandResult> execCmdAsync(final List<String> commands,
-                                                         final boolean isRooted,
-                                                         final Utils.Callback<CommandResult> callback) {
-        return execCmdAsync(commands == null ? null : commands.toArray(new String[]{}), isRooted, true, callback);
+    public boolean isRunning() {
+        return bRunning;
     }
 
     /**
-     * Execute the command asynchronously.
-     *
-     * @param commands The commands.
-     * @param isRooted True to use root, false otherwise.
-     * @param callback The callback.
-     * @return the task
+     * @return 返回执行结果
      */
-    public static Utils.Task<CommandResult> execCmdAsync(final String[] commands,
-                                                         final boolean isRooted,
-                                                         final Utils.Callback<CommandResult> callback) {
-        return execCmdAsync(commands, isRooted, true, callback);
-    }
-
-    /**
-     * Execute the command asynchronously.
-     *
-     * @param command         The command.
-     * @param isRooted        True to use root, false otherwise.
-     * @param isNeedResultMsg True to return the message of result, false otherwise.
-     * @param callback        The callback.
-     * @return the task
-     */
-    public static Utils.Task<CommandResult> execCmdAsync(final String command,
-                                                         final boolean isRooted,
-                                                         final boolean isNeedResultMsg,
-                                                         final Utils.Callback<CommandResult> callback) {
-        return execCmdAsync(new String[]{command}, isRooted, isNeedResultMsg, callback);
-    }
-
-    /**
-     * Execute the command asynchronously.
-     *
-     * @param commands        The commands.
-     * @param isRooted        True to use root, false otherwise.
-     * @param isNeedResultMsg True to return the message of result, false otherwise.
-     * @param callback        The callback.
-     * @return the task
-     */
-    public static Utils.Task<CommandResult> execCmdAsync(final List<String> commands,
-                                                         final boolean isRooted,
-                                                         final boolean isNeedResultMsg,
-                                                         final Utils.Callback<CommandResult> callback) {
-        return execCmdAsync(commands == null ? null : commands.toArray(new String[]{}),
-                isRooted,
-                isNeedResultMsg,
-                callback);
-    }
-
-    /**
-     * Execute the command asynchronously.
-     *
-     * @param commands        The commands.
-     * @param isRooted        True to use root, false otherwise.
-     * @param isNeedResultMsg True to return the message of result, false otherwise.
-     * @param callback        The callback.
-     * @return the task
-     */
-    public static Utils.Task<CommandResult> execCmdAsync(final String[] commands,
-                                                         final boolean isRooted,
-                                                         final boolean isNeedResultMsg,
-                                                         @NonNull final Utils.Callback<CommandResult> callback) {
-        return Utils.doAsync(new Utils.Task<CommandResult>(callback) {
-            @Override
-            public CommandResult doInBackground() {
-                return execCmd(commands, isRooted, isNeedResultMsg);
-            }
-        });
-    }
-
-    /**
-     * Execute the command.
-     *
-     * @param command  The command.
-     * @param isRooted True to use root, false otherwise.
-     * @return the single {@link CommandResult} instance
-     */
-    public static CommandResult execCmd(final String command, final boolean isRooted) {
-        return execCmd(new String[]{command}, isRooted, true);
-    }
-
-    /**
-     * Execute the command.
-     *
-     * @param commands The commands.
-     * @param isRooted True to use root, false otherwise.
-     * @return the single {@link CommandResult} instance
-     */
-    public static CommandResult execCmd(final List<String> commands, final boolean isRooted) {
-        return execCmd(commands == null ? null : commands.toArray(new String[]{}), isRooted, true);
-    }
-
-    /**
-     * Execute the command.
-     *
-     * @param commands The commands.
-     * @param isRooted True to use root, false otherwise.
-     * @return the single {@link CommandResult} instance
-     */
-    public static CommandResult execCmd(final String[] commands, final boolean isRooted) {
-        return execCmd(commands, isRooted, true);
-    }
-
-    /**
-     * Execute the command.
-     *
-     * @param command         The command.
-     * @param isRooted        True to use root, false otherwise.
-     * @param isNeedResultMsg True to return the message of result, false otherwise.
-     * @return the single {@link CommandResult} instance
-     */
-    public static CommandResult execCmd(final String command,
-                                        final boolean isRooted,
-                                        final boolean isNeedResultMsg) {
-        return execCmd(new String[]{command}, isRooted, isNeedResultMsg);
-    }
-
-    /**
-     * Execute the command.
-     *
-     * @param commands        The commands.
-     * @param isRooted        True to use root, false otherwise.
-     * @param isNeedResultMsg True to return the message of result, false otherwise.
-     * @return the single {@link CommandResult} instance
-     */
-    public static CommandResult execCmd(final List<String> commands,
-                                        final boolean isRooted,
-                                        final boolean isNeedResultMsg) {
-        return execCmd(commands == null ? null : commands.toArray(new String[]{}),
-                isRooted,
-                isNeedResultMsg);
-    }
-
-    /**
-     * Execute the command.
-     *
-     * @param commands        The commands.
-     * @param isRooted        True to use root, false otherwise.
-     * @param isNeedResultMsg True to return the message of result, false otherwise.
-     * @return the single {@link CommandResult} instance
-     */
-    public static CommandResult execCmd(final String[] commands,
-                                        final boolean isRooted,
-                                        final boolean isNeedResultMsg) {
-        int result = -1;
-        if (commands == null || commands.length == 0) {
-            return new CommandResult(result, "", "");
-        }
-        Process process = null;
-        BufferedReader successResult = null;
-        BufferedReader errorResult = null;
-        StringBuilder successMsg = null;
-        StringBuilder errorMsg = null;
-        DataOutputStream os = null;
+    public String getResult() {
+        Lock readLock = lock.readLock();
+        readLock.lock();
         try {
-            process = Runtime.getRuntime().exec(isRooted ? "su" : "sh");
-            os = new DataOutputStream(process.getOutputStream());
-            for (String command : commands) {
-                if (command == null) continue;
-                os.write(command.getBytes());
-                os.writeBytes(LINE_SEP);
-                os.flush();
-            }
-            os.writeBytes("exit" + LINE_SEP);
+            Log.i("auto", "getResult");
+            return new String(result);
+        } finally {
+            readLock.unlock();
+        }
+    }
+
+    /**
+     * 执行命令
+     *
+     * @param command eg: cat /sdcard/test.txt
+     *                路径最好不要是自己拼写的路径，最好是通过方法获取的路径
+     *                example：Environment.getExternalStorageDirectory()
+     * @param maxTime 最大等待时间 (ms)
+     * @return this
+     */
+    public ShellUtil run(String command, final int maxTime) {
+        Log.i("auto", "run command:" + command + ",maxtime:" + maxTime);
+        if (command == null || command.length() == 0) {
+            return this;
+        }
+
+        try {
+            process = getRuntime().exec("sh");//看情况可能是su
+        } catch (Exception e) {
+            return this;
+        }
+        bRunning = true;
+        successResult = new BufferedReader(new InputStreamReader(process.getInputStream()));
+        errorResult = new BufferedReader(new InputStreamReader(process.getErrorStream()));
+        os = new DataOutputStream(process.getOutputStream());
+
+        try {
+            //向sh写入要执行的命令
+            os.write(command.getBytes());
+            os.writeBytes("\n");
             os.flush();
-            result = process.waitFor();
-            if (isNeedResultMsg) {
-                successMsg = new StringBuilder();
-                errorMsg = new StringBuilder();
-                successResult = new BufferedReader(
-                        new InputStreamReader(process.getInputStream(), "UTF-8")
-                );
-                errorResult = new BufferedReader(
-                        new InputStreamReader(process.getErrorStream(), "UTF-8")
-                );
-                String line;
-                if ((line = successResult.readLine()) != null) {
-                    successMsg.append(line);
-                    while ((line = successResult.readLine()) != null) {
-                        successMsg.append(LINE_SEP).append(line);
+
+            os.writeBytes("exit\n");
+            os.flush();
+
+            os.close();
+            //如果等待时间设置为非正，就不开启超时关闭功能
+            if (maxTime > 0) {
+                //超时就关闭进程
+                new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            Thread.sleep(maxTime);
+                        } catch (Exception e) {
+                        }
+                        try {
+                            int ret = process.exitValue();
+                            Log.i("auto", "exitValue Stream over" + ret);
+                        } catch (IllegalThreadStateException e) {
+                            Log.i("auto", "take maxTime,forced to destroy process");
+                            process.destroy();
+                        }
+                    }
+                }).start();
+            }
+
+            //开一个线程来处理input流
+            final Thread t1 = new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    String line;
+                    Lock writeLock = lock.writeLock();
+                    try {
+                        while ((line = successResult.readLine()) != null) {
+                            line += "\n";
+                            writeLock.lock();
+                            result.append(line);
+                            writeLock.unlock();
+                        }
+                    } catch (Exception e) {
+                        Log.i("auto", "read InputStream exception:" + e.toString());
+                    } finally {
+                        try {
+                            successResult.close();
+                            Log.i("auto", "read InputStream over");
+                        } catch (Exception e) {
+                            Log.i("auto", "close InputStream exception:" + e.toString());
+                        }
                     }
                 }
-                if ((line = errorResult.readLine()) != null) {
-                    errorMsg.append(line);
-                    while ((line = errorResult.readLine()) != null) {
-                        errorMsg.append(LINE_SEP).append(line);
+            });
+            t1.start();
+
+            //开一个线程来处理error流
+            final Thread t2 = new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    String line;
+                    Lock writeLock = lock.writeLock();
+                    try {
+                        while ((line = errorResult.readLine()) != null) {
+                            line += "\n";
+                            writeLock.lock();
+                            result.append(line);
+                            writeLock.unlock();
+                        }
+                    } catch (Exception e) {
+                        Log.i("auto", "read ErrorStream exception:" + e.toString());
+                    } finally {
+                        try {
+                            errorResult.close();
+                            Log.i("auto", "read ErrorStream over");
+                        } catch (Exception e) {
+                            Log.i("auto", "read ErrorStream exception:" + e.toString());
+                        }
                     }
                 }
+            });
+            t2.start();
+
+            Thread t3 = new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        //等待执行完毕
+                        t1.join();
+                        t2.join();
+                        process.waitFor();
+                    } catch (Exception e) {
+
+                    } finally {
+                        bRunning = false;
+                        Log.i("auto", "run command process end");
+                    }
+                }
+            });
+            t3.start();
+
+            if (bSynchronous) {
+                Log.i("auto", "run is go to end");
+                t3.join();
+                Log.i("auto", "run is end");
             }
         } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            try {
-                if (os != null) {
-                    os.close();
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-            try {
-                if (successResult != null) {
-                    successResult.close();
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-            try {
-                if (errorResult != null) {
-                    errorResult.close();
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-            if (process != null) {
-                process.destroy();
-            }
+            Log.i("auto", "run command process exception:" + e.toString());
         }
-        return new CommandResult(
-                result,
-                successMsg == null ? "" : successMsg.toString(),
-                errorMsg == null ? "" : errorMsg.toString()
-        );
+        return this;
     }
 
-    /**
-     * The result of command.
-     */
-    public static class CommandResult {
-        public int result;
-        public String successMsg;
-        public String errorMsg;
-
-        public CommandResult(final int result, final String successMsg, final String errorMsg) {
-            this.result = result;
-            this.successMsg = successMsg;
-            this.errorMsg = errorMsg;
-        }
-
-        @Override
-        public String toString() {
-            return "result: " + result + "\n" +
-                    "successMsg: " + successMsg + "\n" +
-                    "errorMsg: " + errorMsg;
-        }
-    }
 }
