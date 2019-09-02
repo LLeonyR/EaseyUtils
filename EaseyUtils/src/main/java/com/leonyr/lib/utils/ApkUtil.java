@@ -108,12 +108,13 @@ public final class ApkUtil {
      * @param file APK文件
      * @param authority provider authority属性
      */
-    public void installApk(Context context, File file, String authority) {
+    public static void installApk(Context context, File file, String authority) {
         Intent intent = new Intent();
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
         intent.setAction(Intent.ACTION_VIEW);
         intent.setDataAndType(Build.VERSION.SDK_INT >= Build.VERSION_CODES.N ? FileProvider.getUriForFile(context, authority, file) :
-                Uri.fromFile(file), "\"application/vnd.android.package-archive\"");
+                Uri.fromFile(file), "application/vnd.android.package-archive");
         context.startActivity(intent);
     }
 
