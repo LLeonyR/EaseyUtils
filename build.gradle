@@ -3,9 +3,9 @@
 apply from: "config.gradle"
 
 buildscript {
-    
+
     repositories {
-        maven{ url 'http://maven.aliyun.com/nexus/content/groups/public/'}
+        maven { url 'http://maven.aliyun.com/nexus/content/groups/public/' }
         google()
         jcenter()
     }
@@ -19,12 +19,18 @@ buildscript {
 
 allprojects {
     repositories {
-        maven{ url 'http://maven.aliyun.com/nexus/content/groups/public/'}
+        maven { url 'http://maven.aliyun.com/nexus/content/groups/public/' }
         google()
         jcenter()
     }
+    tasks.withType(Javadoc).all {
+        enabled = false
+    }
+
 }
 
 task clean(type: Delete) {
     delete rootProject.buildDir
 }
+
+//tasks.findByPath(":EaseyUtils:javadocRelease").enabled = false
