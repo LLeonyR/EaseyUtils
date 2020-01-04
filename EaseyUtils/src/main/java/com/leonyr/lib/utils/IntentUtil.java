@@ -27,7 +27,7 @@ public class IntentUtil {
      * @param c 当前上下文
      * @param a 目的Activity
      */
-    public static void start(Context c, Class<Activity> a) {
+    public static void start(Context c, Class<? extends Activity> a) {
         start(c, a, null);
     }
 
@@ -37,7 +37,7 @@ public class IntentUtil {
      * @param a 目的Activity
      * @param b Bundle参数
      */
-    public static void start(Context c, Class<Activity> a, Bundle b) {
+    public static void start(Context c, Class<? extends Activity> a, Bundle b) {
         Intent i = new Intent(c, a);
         if (null != b) {
             i.putExtras(b);
@@ -50,7 +50,7 @@ public class IntentUtil {
      * @param c 当前上下文
      * @param a 目的Activity
      */
-    public static void startClearTop(Context c, Class<Activity> a){
+    public static void startClearTop(Context c, Class<? extends Activity> a){
         startClearTop(c, a, null);
     }
 
@@ -60,7 +60,7 @@ public class IntentUtil {
      * @param a 目的Activity
      * @param b Bundle参数
      */
-    public static void startClearTop(Context c, Class<Activity> a, Bundle b){
+    public static void startClearTop(Context c, Class<? extends Activity> a, Bundle b){
         Intent i = new Intent(c, a);
         i.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK);
         i.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
