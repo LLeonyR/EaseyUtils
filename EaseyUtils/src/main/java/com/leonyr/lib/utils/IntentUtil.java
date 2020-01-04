@@ -1,10 +1,12 @@
 package com.leonyr.lib.utils;
 
+import android.app.Activity;
 import android.app.ActivityManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
+import android.os.Bundle;
 import android.provider.Settings;
 import android.text.TextUtils;
 
@@ -19,6 +21,54 @@ import java.util.List;
  * ==============================================================
  */
 public class IntentUtil {
+
+    /**
+     * activity 跳转
+     * @param c 当前上下文
+     * @param a 目的Activity
+     */
+    public static void start(Context c, Class<Activity> a) {
+        start(c, a, null);
+    }
+
+    /**
+     * activity 跳转
+     * @param c 当前上下文
+     * @param a 目的Activity
+     * @param b Bundle参数
+     */
+    public static void start(Context c, Class<Activity> a, Bundle b) {
+        Intent i = new Intent(c, a);
+        if (null != b) {
+            i.putExtras(b);
+        }
+        c.startActivity(i);
+    }
+
+    /**
+     * activity 跳转
+     * @param c 当前上下文
+     * @param a 目的Activity
+     */
+    public static void startClearTop(Context c, Class<Activity> a){
+        startClearTop(c, a, null);
+    }
+
+    /**
+     * activity 跳转
+     * @param c 当前上下文
+     * @param a 目的Activity
+     * @param b Bundle参数
+     */
+    public static void startClearTop(Context c, Class<Activity> a, Bundle b){
+        Intent i = new Intent(c, a);
+        i.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        i.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        if (null != b) {
+            i.putExtras(b);
+        }
+        c.startActivity(i);
+    }
 
     /**
      * 跳转到时间日期设置界面
@@ -58,25 +108,28 @@ public class IntentUtil {
 
     /**
      * 显示添加账户创建一个新的账户屏幕
+     *
      * @param c
      */
-    public static void ToAddAccount(Context c){
+    public static void ToAddAccount(Context c) {
         ToPage(c, Settings.ACTION_ADD_ACCOUNT);
     }
 
     /**
      * 飞行模式，无线网和网络设置界面
+     *
      * @param c
      */
-    public static void ToAirplaneModeSet(Context c){
+    public static void ToAirplaneModeSet(Context c) {
         ToPage(c, Settings.EXTRA_AIRPLANE_MODE_ENABLED);
     }
 
     /**
      * WiFi 设置界面
+     *
      * @param c
      */
-    public static void ToWirlessSetting(Context c){
+    public static void ToWirlessSetting(Context c) {
         ToPage(c, Settings.ACTION_WIRELESS_SETTINGS);
     }
 
