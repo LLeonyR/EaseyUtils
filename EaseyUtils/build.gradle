@@ -1,4 +1,7 @@
 apply plugin: 'com.android.library'
+apply plugin: 'kotlin-android'
+apply plugin: 'kotlin-android-extensions'
+apply plugin: 'kotlin-kapt'
 
 //apply from: 'bintrayUpload.gradle'
 //  ./gradlew clean build bintrayUpload -PbintrayUser=lleonyr -PbintrayKey=313be3575e7efefc75aafe6cea597c9337984f
@@ -26,9 +29,19 @@ android {
 }
 
 dependencies {
-    implementation rootProject.ext.dependencies["appcompat-v7"]
-    implementation rootProject.ext.dependencies["design"]
-    implementation rootProject.ext.dependencies["recyclerview-v7"]
+    api fileTree(dir: 'libs', include: ['*.jar'])
+    api rootProject.ext.dependencies["kotlin-stdlib"]
+    api rootProject.ext.dependencies["appcompat-v7"]
+    api rootProject.ext.dependencies["design"]
+    api rootProject.ext.dependencies["constraint1"]
+//    kapt "com.android.databinding:compiler:3.1.4"
+
+    api rootProject.ext.dependencies["lifecycle-runtime"]
+    api rootProject.ext.dependencies["lifecycle-extensions"]
+    api rootProject.ext.dependencies["recyclerview-v7"]
+
+    api rootProject.ext.kotlinDependencies["coroutinesCore"]
+    api rootProject.ext.kotlinDependencies["coroutinesAndroid"]
 }
 
 ext {

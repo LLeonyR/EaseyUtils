@@ -2,7 +2,9 @@ package com.leonyr.lib.utils;
 
 import android.content.Context;
 import android.os.Vibrator;
-import android.support.annotation.RequiresPermission;
+
+import androidx.annotation.RequiresPermission;
+
 import com.leonyr.lib.Utils;
 import static android.Manifest.permission.VIBRATE;
 

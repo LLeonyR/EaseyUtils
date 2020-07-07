@@ -1,5 +1,9 @@
 apply plugin: 'com.android.application'
 
+apply plugin: 'kotlin-android'
+
+apply plugin: 'kotlin-android-extensions'
+
 android {
     compileSdkVersion rootProject.ext.android.compileVersion
     buildToolsVersion rootProject.ext.android.buildVersion
@@ -22,6 +26,10 @@ android {
         abortOnError false
     }
 
+    compileOptions {//使用JAVA8语法解析
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
 }
 
 dependencies {

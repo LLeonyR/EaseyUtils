@@ -11,8 +11,9 @@ import android.content.pm.PackageManager;
 import android.content.pm.Signature;
 import android.net.Uri;
 import android.os.Build;
-import android.support.v4.content.FileProvider;
 import android.text.TextUtils;
+
+import androidx.core.content.FileProvider;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
